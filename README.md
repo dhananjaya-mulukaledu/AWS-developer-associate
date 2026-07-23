@@ -5,9 +5,12 @@ Table Of Content
 - [AWS Developer](#aws-developer)
   - [Dynamo DB](#dynamo-db)
     - [Read Capacity Unit (RCU)](#read-capacity-unit-rcu)
+    - [Parallel Scan](#parallel-scan)
     - [Options to backup the DB data to S3](#options-to-backup-the-db-data-to-s3)
+    - [DynamoDB Accelerator (DAX)](#dynamodb-accelerator-dax)
   - [AWS RDS](#aws-rds)
     - [Replicas and backup](#replicas-and-backup)
+  - [ElastiCache](#elasticache)
   - [CloudFront (CDN):](#cloudfront-cdn)
   - [Lambda Function:](#lambda-function)
     - [There are 2 types of concurrency.](#there-are-2-types-of-concurrency)
@@ -16,41 +19,53 @@ Table Of Content
     - [You provide: Application Code](#you-provide-application-code)
   - [Simple Queue Service (SQS)](#simple-queue-service-sqs)
     - [Extended Client](#extended-client)
+    - [Triva](#triva-1)
   - [AWS Serverless Application Model (AWS SAM),](#aws-serverless-application-model-aws-sam)
   - [Amazon Kinesis](#amazon-kinesis)
     - [Use Cases](#use-cases)
     - [Shards](#shards)
     - [Kinesis Agent](#kinesis-agent)
     - [Data FireHouse](#data-firehouse)
+  - [EventBridge](#eventbridge)
+    - [Triva](#triva-2)
   - [AWS Step Functions](#aws-step-functions)
   - [Amazon Elastic Container Service (Amazon ECS)](#amazon-elastic-container-service-amazon-ecs)
-    - [Triva](#triva-1)
+    - [Triva](#triva-3)
   - [Configure CloudWatch](#configure-cloudwatch)
     - [Logs](#logs)
     - [Custom Metrics](#custom-metrics)
     - [Use Cases](#use-cases-1)
+  - [X-Ray](#x-ray)
+    - [Triva](#triva-4)
   - [Load Balancer](#load-balancer)
     - [Stickiness Enabled](#stickiness-enabled)
   - [Cognito User Pool](#cognito-user-pool)
   - [Cognito Identity Pool](#cognito-identity-pool)
       - [How it works](#how-it-works)
       - [Connection between User and Identity Pool:](#connection-between-user-and-identity-pool)
-    - [Triva:](#triva-2)
+    - [Triva:](#triva-5)
   - [AWS AppSync](#aws-appsync)
   - [AWS CloudFormation](#aws-cloudformation)
   - [Amazon EBS (Elastic Block Stroage)](#amazon-ebs-elastic-block-stroage)
   - [AWS S3](#aws-s3)
+    - [Comparison of S3 Encryption Options](#comparison-of-s3-encryption-options)
     - [Controlling Access to S3](#controlling-access-to-s3)
-    - [Triva](#triva-3)
+    - [Triva](#triva-6)
+  - [Amazon Macie](#amazon-macie)
+    - [Macie vs Other Security Services](#macie-vs-other-security-services)
   - [AWS KMS (Key Management Service)](#aws-kms-key-management-service)
     - [Envelope Encryption](#envelope-encryption)
-    - [Triva](#triva-4)
+    - [Triva](#triva-7)
       - [Simple Architecture](#simple-architecture)
+  - [CloudTrail](#cloudtrail)
+  - [SSM Parameter store](#ssm-parameter-store)
   - [AWS CodeBuild](#aws-codebuild)
   - [AWS CodePipeline](#aws-codepipeline)
   - [AWS CodeCommit](#aws-codecommit)
   - [AWS CodeDeploy](#aws-codedeploy)
       - [AWS CodeDeploy Agent](#aws-codedeploy-agent)
+  - [CodeStar](#codestar)
+      - [Triva](#triva-8)
   - [Auto-Scaling](#auto-scaling)
   - [Types of Deployment](#types-of-deployment)
     - [All At Once](#all-at-once)
@@ -58,6 +73,7 @@ Table Of Content
     - [Rolling with Additional Batch](#rolling-with-additional-batch)
     - [Immutable Deployment](#immutable-deployment)
     - [Traffic Spiltting / Canary Deployment](#traffic-spiltting--canary-deployment)
+    - [Blue / Green Deployment](#blue--green-deployment)
       - [Quick Comparsion:](#quick-comparsion)
   - [Amazon Athena](#amazon-athena)
   - [AWS Redshift](#aws-redshift)
@@ -65,6 +81,7 @@ Table Of Content
     - [Policies](#policies)
     - [Permissions](#permissions)
     - [Simple Analogy](#simple-analogy)
+    - [Granting Cross-Account Permissions](#granting-cross-account-permissions)
 - [AWS Glue](#aws-glue)
   - [AWS Security Token Service (STS)](#aws-security-token-service-sts)
 
@@ -99,6 +116,10 @@ Formula of RCUs = (Item Size / 4 KB) × Consistency Factor (1 for strongly and 0
   - Auto Scaling = Increase/decrease provisioned RCUs/WCUs.
   - On-Demand = DynamoDB does everything automatically; no RCUs/WCUs to manage.
 
+### Parallel Scan
+- By default, the Scan operation processes data sequentially. Amazon DynamoDB returns data to the application in 1 MB increments, and an application performs additional Scan operations to retrieve the next 1 MB of data.
+- Parallel Scan in DynamoDB is a technique used to scan a table faster by splitting the scan operation into multiple workers that run simultaneously.
+
 ### Options to backup the DB data to S3
 - Use AWS Data Pipeline to export your table to an S3 bucket in the account of your choice and download locally
   - This is the easiest method. This method is used when you want to make a one-time backup using the lowest amount of AWS resources possible. Data Pipeline uses Amazon EMR to create the backup, and the scripting is done for you. You don't have to learn Apache Hive or Apache Spark to accomplish this task.
@@ -108,6 +129,10 @@ Formula of RCUs = (Item Size / 4 KB) × Consistency Factor (1 for strongly and 0
 - Use **Glue** to copy your table to Amazon S3 and download locally
   - Use Glue to copy your table to Amazon S3. This is the best practice to use if you want automated, continuous backups that you can also use in another service, such as Amazon Athena.
 
+### DynamoDB Accelerator (DAX)
+- It is a fully managed, highly available, in-memory cache for Amazon DynamoDB that delivers up to a 10 times performance improvement—from milliseconds to microseconds—even at millions of requests per second.
+- DAX is tightly integrated with DynamoDB—you simply provision a DAX cluster, use the DAX client SDK to point your existing DynamoDB API calls at the DAX cluster, and let DAX handle the rest. Because DAX is API-compatible with DynamoDB, you don't have to make any functional application code changes. DAX is used to natively cache DynamoDB reads.
+- 
 **** 
 ## AWS RDS
 - RDS POSTGRESQL and RDS MYSQL can be configured with IAM database Authentication.
@@ -115,6 +140,29 @@ Formula of RCUs = (Item Size / 4 KB) × Consistency Factor (1 for strongly and 0
 
 ### Replicas and backup
 - Automated backup feature of the AWS RDS is a MULTI-AZ deployment that creates backup in SINGLE REGION.
+
+****
+## ElastiCache
+- It allows you to seamlessly set up, run, and scale popular open-Source compatible in-memory data stores in the cloud.
+- Build data-intensive apps or boost the performance of your existing databases by retrieving data from high throughput and low latency in-memory data stores.
+- Amazon ElastiCache is a popular choice for real-time use cases like Caching, Session Stores, Gaming, Geospatial Services, Real-Time Analytics, and Queuing.
+- With ElastiCache, ```Application -> ElastiCache Endpoint -> Redis / Memcached``` AWS manages:
+  - Servers
+  - Redis installation
+  - Patching
+  - Failover
+  - Monitoring
+  - Backups (Redis)
+  - Cluster management
+- Broadly, there are two types of caching strategies:
+- Lazy Loading: application check for data in cache if found in cache return data, else fetch data from DB and then update the cache and return the data.
+- Write-Through: application adds / updates cache, whenwere there is post / patch request to DB.
+  - Advantages:
+    - Data in cache is always in sync with the DB.
+  - Disadvantages:
+    - if you spin up a new node, the data is missing in cache untill it getting added / updated.
+    - cache churn: Most data ends up ever read, adding TTL can help here.
+
 
 ****
 
@@ -158,6 +206,7 @@ Formula of RCUs = (Item Size / 4 KB) × Consistency Factor (1 for strongly and 0
 
 ### Triva
 - The total size of the env variables should not exceed 4 KB.
+- The local directory /tmp, This is 512MB of temporary space you can use for your Lambda functions.
 
 ****
 
@@ -172,10 +221,12 @@ Formula of RCUs = (Item Size / 4 KB) × Consistency Factor (1 for strongly and 0
 ****
 ## Simple Queue Service (SQS)
 
-- Standard queue: offer maximum throughput, best-effort ordering, and at-least-once delivery.
-- FIFO queues: are designed to guarantee that messages are processed exactly once, in the exact order that they are sent.
-- Delay Queue: when sending a event to SQS, we can add a delay to it min of 0 and max of 15 mins, this will be in the delay queue.
-- Visibility timeout: It is the time for which the event is not visible to other consumers, meaning when a event is being processed by a consumer, other consumers can not be able to see this event, min = 0, max = 12 hours, default = 30 sec.
+- **Standard queue**: offer maximum throughput, best-effort ordering, and at-least-once delivery.
+- **FIFO queues**: are designed to guarantee that messages are processed exactly once, in the exact order that they are sent.
+  - **MessageGroupId**: The message group ID is the tag that specifies that a message belongs to a specific message group. Messages that belong to the same message group are always processed one by one, in a strict order relative to the message group (however, messages that belong to different message groups might be processed out of order).
+  - **MessageDeduplicationId** - The message deduplication ID is the token used for the deduplication of sent messages. If a message with a particular message deduplication ID is sent successfully, any messages sent with the same message deduplication ID are accepted successfully but aren't delivered during the 5-minute deduplication interval.
+- **Delay Queue**: when sending a event to SQS, we can add a delay to it min of 0 and max of 15 mins, this will be in the delay queue.
+- **Visibility timeout**: It is the time for which the event is not visible to other consumers, meaning when a event is being processed by a consumer, other consumers can not be able to see this event, min = 0, max = 12 hours, default = 30 sec.
 - **in-flight messages**: received from a queue by a consumer, but not yet deleted from the queue. MAX of 120,000 in-flight messages allowed.
 - "no limit": There are no message limits for storing in SQS.
 - By default SQS uses SHORT-POLLING, With short polling, Amazon SQS sends the response right away, even if the query found no messages.
@@ -189,6 +240,9 @@ Formula of RCUs = (Item Size / 4 KB) × Consistency Factor (1 for strongly and 0
   - S3 pointer / reference is sent to SQS.
   - consumer recevies the SQS message.
   - extended client, automatically retrieves the file / payload from the S3
+
+### Triva
+- The maxium size of a message supported by SQS is 1MB / 1024 KB.
 
 ****
 
@@ -235,7 +289,22 @@ Kinesis Stream
 - With FireHouse, we can send data to 2 S3 bucket, or to S3 bucket and SQS or a Elasticsearch cluster or to redshift via S3-bucket.
 
 ****
+## EventBridge
+It is serverless event bus, that events from aws services, application to targets such as lambda, SQS, SNS or EC2, basied on rules of routing.
+- Events: respresent the messages are data that is given to EventBridge.
+- Rules: this determin what happens when a event comes, or where to route it to.
+- Targets: Consumers who process the events.
+- Imagine an airport:
+  - Events = passengers
+  - EventBridge = airport
+  - Rules = boarding gates
+  - Targets = destinations
 
+### Triva
+- Event supports scheduled rules using either:
+  - Rate expressions: runs at a fixed interval (every hour).
+  - Cron expressions: lets you specify exact times and dates (Run every day at 12:00 PM UTCShow more lines).
+****
 ## AWS Step Functions
 - AWS Step Functions enables you to implement a business process as a series of steps that make up a workflow. The individual steps in the workflow can invoke a Lambda function or a container that has some business logic, update a database such as DynamoDB or publish a message to a queue once that step or the entire workflow completes execution.
 
@@ -244,7 +313,7 @@ Kinesis Stream
   - Standard step functions (1 Year excution time): More suitable for long-running, durable, and auditable workflows.
   - Express step function (5 Mins): Used for workloads with high event rates and short durations. Express Workflows support event rates of more than 100,000 per second. DO NOT SUPPORT HUMAN APPROVAL STEP (.waitForTaskToken).
 
-![alt text](<Screenshot 2026-07-20 143831.png>)
+![Step function Image](./images/stepFunctions.png)
 
 ****
 
@@ -275,6 +344,22 @@ Kinesis Stream
 
 ### Use Cases
 - We can create composite alerts over a custom-metrices, to watch for error-rate, latency over a period of 1 hour and send notification to SNS, SQS or SES and so on.
+
+****
+## X-Ray
+
+- AWS X-Ray helps developers analyze and debug production, distributed applications, such as those built using a microservices architecture.
+- With X-Ray, you can understand how your application and its underlying services are performing to identify and troubleshoot the root cause of performance issues and errors.
+- X-Ray provides an end-to-end view of requests as they travel through your application, and shows a map of your application’s underlying components.
+- **You can use X-Ray to collect data across AWS Accounts. The X-Ray agent can assume a role to publish data into an account different from the one in which it is running. This enables you to publish data from various components of your application into a central account.**
+
+![X-Ray](./images/x-ray.png)
+
+### Triva
+- Annotations: are custom key-value pairs(**Indexed**) that you add to trace data so that you can filter, search, and group traces later.
+- MetaData: are key-value pairs with values of any type, including objects and lists, but that is NOT indexed. Use metadata to record data you want to store in the trace but don't need to use for searching traces
+- Segments: The computing resources running your application logic send data about their work as segments. A segment provides the resource's name, details about the request, and details about the work done.
+- Sampling: To ensure efficient tracing and provide a representative sample of the requests that your application serves, the X-Ray SDK applies a sampling algorithm to determine which requests get traced. By default, the X-Ray SDK records the first request each second, and five percent of any additional requests.
 
 ****
 
@@ -382,9 +467,6 @@ List<AWS::EC2::SecurityGroup::Id> – An array of security group IDs
 List<AWS::EC2::Subnet::Id> – An array of subnet IDs array of subnet IDs
 ```
 
-How CloudFormation Works:
-![alt text](image.png)
-
 ****
 
 ## Amazon EBS (Elastic Block Stroage)
@@ -410,6 +492,50 @@ EBS volumes are flexible.
 - **pre-signed URLs** All objects by default are private, with the object owner having permission to access the objects. However, the object owner can optionally share objects with others by creating a pre-signed URL, using their own security credentials, to grant time-limited permission to download the objects.
 - **CROS-Config**: For allowing cross-origin on the S3 objects (webhosting), upload a XML file, with allowed origin and allowed HTTP methods.
 - **bucket-owner-full-control**, when passed while uploading the object to bucket, the object owner is now the bucket owner.
+- **Transfer Acceleration**: It is a feature of Amazon S3 that speeds up uploads and downloads of objects over long distances by routing traffic through the AWS global edge network (CloudFront edge locations).
+  - without S3TA: ```India User -> Internet -> S3 Bucket (Virgina)```
+  - With S3TA: 
+```India User -> Mumbai Edge Location -> AWS Global Network -> S3 Bucket (Virginia)```
+
+- SSE-C (Server-Side Encryption with Customer-Provided Keys):
+  - You provide the encryption key with every request.
+  - Amazon S3 performs the encryption/decryption.
+  - AWS does not store your encryption key.
+  - In case of SSE-C encryptions, S3 will not accept HTTP requests.
+
+**When uploading an object:**
+  ```
+    Your Application
+          |
+          |  Encryption Key
+          v
+        S3
+          |
+  Encrypts Object
+          |
+  Store Encrypted Object
+  ```
+**When downloading:**
+  ```
+    Your Application
+          |
+          | Same Encryption Key
+          v
+        S3
+          |
+  Decrypt Object
+          |
+  Return Data
+  ```
+### Comparison of S3 Encryption Options
+
+| Encryption Type        | Who Manages Key? |
+| ---------------------- | ---------------- |
+| SSE-S3                 | AWS (AE256)      |
+| SSE-KMS                | AWS KMS          |
+| SSE-C                  | Customer         |
+| Client-Side Encryption | Customer         |
+
 
 ### Controlling Access to S3
 - Identity and Access Mangement (IAM) policies.
@@ -428,6 +554,36 @@ EBS volumes are flexible.
 }
 ```
 Here all the objects in the public folder are public.
+****
+## Amazon Macie
+- Amazon Macie's primary scope is Amazon S3.
+- A service that scans your S3 buckets and tells you if they contain sensitive information such as PII, financial data, credentials, or secrets.
+- What can Macie detect? Examples of sensitive data:
+  - Credit card number
+  - Aadhaar/Social Security number
+  - Passport number
+  - Email addresse
+  - Phone number
+  - Bank account detail
+  - API keys and credential
+  - Personal Health Information (PHI)
+- How it works
+  - Macie scans your S3 buckets
+  - It identifies sensitive data using built-in managed identifiers and pattern matching
+  - It generates findings if sensitive information is discovered
+  - Findings can be viewed in Macie or sent to EventBridge, Security Hub, or SNS for notifications.
+
+### Macie vs Other Security Services
+
+| Service          | Purpose                                    |
+| ---------------- | ------------------------------------------ |
+| **Macie**        | Discover and classify sensitive data in S3 |
+| **GuardDuty**    | Detect threats and suspicious activity     |
+| **Inspector**    | Scan EC2/ECR/Lambda for vulnerabilities    |
+| **Security Hub** | Central security dashboard                 |
+| **Detective**    | Investigate security findings              |
+| **AWS Config**   | Track resource configuration changes       |
+
 
 ****
 ## AWS KMS (Key Management Service)
@@ -496,6 +652,17 @@ In Prod Example:
 | CodeBuild | Compile/Test |
 | CodeDeploy | Deploy application |
 | CodePipeline | Orchestrate entire CI/CD flow |
+
+****
+## CloudTrail
+- AWS CloudTrail is a service that enables governance, compliance, operational auditing, and risk auditing of your AWS account.
+- With CloudTrail, you can log, continuously monitor, and retain account activity related to actions across your AWS infrastructure. 
+
+****
+
+## SSM Parameter store
+-  AWS Systems Manager Parameter Store, you can create SecureString parameters, which are parameters that have a plaintext parameter name and an encrypted parameter value.
+-  Parameter Store uses AWS KMS to encrypt and decrypt the parameter values of Secure String parameters.
 
 ****
 
@@ -567,16 +734,39 @@ Source      Build
 AWS CodeCommit is AWS's managed Git repository service.
 Think of it as AWS's version of GitHub, GitLab, or Bitbucket, where you can store your source code and track changes using Git.
 
+- Data in AWS CodeCommit repositories is encrypted in transit and at rest. When data is pushed into an AWS CodeCommit repository (for example, by calling git push), AWS CodeCommit encrypts the received data as it is stored in the repository.
 
 ****
 ## AWS CodeDeploy
 
 AWS CodeDeploy is an service, that manages all the deployment tasks.
 
+- When **automatic rollback** is enabled, then when a deployment fails, codeDeploy automatically deploys the last known WORKING version with a new deploymentId.
+
 #### AWS CodeDeploy Agent
 - The CodeDeploy agent is a software package that, when installed and configured on an instance, makes it possible for that instance to be used in CodeDeploy deployments.
 - The CodeDeploy agent archives revisions and log files on instances. The CodeDeploy agent cleans up these artifacts to conserve disk space.
 - You can use the **max_revisions** option in the agent configuration file to specify the number of application revisions to the archive by entering any positive integer.
+
+****
+
+## CodeStar
+- AWS CodeStar enables you to quickly develop, build, and deploy applications on AWS. AWS CodeStar provides a unified user interface, enabling you to easily manage your software development activities in one place.
+- Suppose you want to create a Python web application, Create a CodeStar project. Select a Python web app template.
+  - CodeStar automatically creates:
+  - Git repository
+  - Build project
+  - Deployment pipeline
+  - Application environment
+  - Developers commit code to the repository.
+  - The pipeline automatically builds, tests, and deploys the application.
+
+#### Triva
+- 👉 CodeCommit = Source Control
+- 👉 CodeBuild = Build/Test
+- 👉 CodeDeploy = Deploy
+- 👉 CodePipeline = CI/CD Workflow
+- 👉 CodeStar = Creates and integrates all of them for a project
 
 ****
 ## Auto-Scaling
@@ -656,6 +846,12 @@ else:
   2. Monitor the metrices, if healthy then 50% to new fleet.
   3. Eventually 100% to new fleet.
 
+### Blue / Green Deployment
+- Blue/Green Deployment is a deployment strategy where you maintain two identical environments:
+  - Blue = Current production version.
+  - Green = New version to be deployed. 
+- Instead of updating the existing servers, you deploy the new version to a separate environment and then switch traffic to it.
+
 #### Quick Comparsion:
 
 | Strategy | Downtime | Extra Instances | Risk |
@@ -685,7 +881,7 @@ else:
 
 ### Policies
 
-![Policies](<Screenshot 2026-07-20 130106.png>)
+![Policies](./images/policies.png)
 
 ### Permissions
 - **Sigv4**
@@ -703,6 +899,12 @@ else:
 ### Simple Analogy
 1. IAM permissions = What you're allowed to do.
 2. SigV4 = Your identity card proving who you are.
+
+### Granting Cross-Account Permissions
+For example, the AWS account A administrator can create a role to grant cross-account permissions to AWS account B as follows:
+- The account A administrator creates an IAM role and attaches a permissions policy—that grants permissions on resources in account A—to the role.
+- The account A administrator attaches a trust policy to the role that identifies account B as the principal who can assume the role.
+- The account B administrator delegates the permission to assume the role to any users in account B. This allows users in account B to create or access queues in account A.
 
 ****
 # AWS Glue
