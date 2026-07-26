@@ -10,11 +10,17 @@ Table Of Content
     - [DynamoDB Accelerator (DAX)](#dynamodb-accelerator-dax)
   - [AWS RDS](#aws-rds)
     - [Replicas and backup](#replicas-and-backup)
+  - [EC2 Instance](#ec2-instance)
   - [ElastiCache](#elasticache)
   - [CloudFront (CDN):](#cloudfront-cdn)
+    - [Viewer VS Origin Requests](#viewer-vs-origin-requests)
+    - [CloudFront Functions (Only in JS)](#cloudfront-functions-only-in-js)
+    - [Lambda Edge Funtions](#lambda-edge-funtions)
   - [Lambda Function:](#lambda-function)
     - [There are 2 types of concurrency.](#there-are-2-types-of-concurrency)
+    - [Account Quotas](#account-quotas)
     - [Triva](#triva)
+  - [API Gateway](#api-gateway)
   - [Elastic Beanstalk](#elastic-beanstalk)
     - [You provide: Application Code](#you-provide-application-code)
   - [Simple Queue Service (SQS)](#simple-queue-service-sqs)
@@ -29,33 +35,41 @@ Table Of Content
   - [EventBridge](#eventbridge)
     - [Triva](#triva-2)
   - [AWS Step Functions](#aws-step-functions)
+  - [Elastic Container registry (ECR)](#elastic-container-registry-ecr)
   - [Amazon Elastic Container Service (Amazon ECS)](#amazon-elastic-container-service-amazon-ecs)
+    - [Logging](#logging)
     - [Triva](#triva-3)
-  - [Configure CloudWatch](#configure-cloudwatch)
+  - [Fargate](#fargate)
+  - [CloudWatch](#cloudwatch)
     - [Logs](#logs)
     - [Custom Metrics](#custom-metrics)
     - [Use Cases](#use-cases-1)
   - [X-Ray](#x-ray)
     - [Triva](#triva-4)
   - [Load Balancer](#load-balancer)
+    - [Types of LBs and there usecases:](#types-of-lbs-and-there-usecases)
     - [Stickiness Enabled](#stickiness-enabled)
+    - [Authentication:](#authentication)
+    - [Triva:](#triva-5)
   - [Cognito User Pool](#cognito-user-pool)
   - [Cognito Identity Pool](#cognito-identity-pool)
       - [How it works](#how-it-works)
       - [Connection between User and Identity Pool:](#connection-between-user-and-identity-pool)
-    - [Triva:](#triva-5)
+    - [Triva:](#triva-6)
   - [AWS AppSync](#aws-appsync)
   - [AWS CloudFormation](#aws-cloudformation)
   - [Amazon EBS (Elastic Block Stroage)](#amazon-ebs-elastic-block-stroage)
+    - [Trivia:](#trivia)
   - [AWS S3](#aws-s3)
     - [Comparison of S3 Encryption Options](#comparison-of-s3-encryption-options)
     - [Controlling Access to S3](#controlling-access-to-s3)
-    - [Triva](#triva-6)
+    - [Triva](#triva-7)
+  - [Elastic File System (EFS)](#elastic-file-system-efs)
   - [Amazon Macie](#amazon-macie)
     - [Macie vs Other Security Services](#macie-vs-other-security-services)
   - [AWS KMS (Key Management Service)](#aws-kms-key-management-service)
     - [Envelope Encryption](#envelope-encryption)
-    - [Triva](#triva-7)
+    - [Triva](#triva-8)
       - [Simple Architecture](#simple-architecture)
   - [CloudTrail](#cloudtrail)
   - [SSM Parameter store](#ssm-parameter-store)
@@ -65,7 +79,7 @@ Table Of Content
   - [AWS CodeDeploy](#aws-codedeploy)
       - [AWS CodeDeploy Agent](#aws-codedeploy-agent)
   - [CodeStar](#codestar)
-      - [Triva](#triva-8)
+      - [Triva](#triva-9)
   - [Auto-Scaling](#auto-scaling)
   - [Types of Deployment](#types-of-deployment)
     - [All At Once](#all-at-once)
@@ -142,6 +156,10 @@ Formula of RCUs = (Item Size / 4 KB) × Consistency Factor (1 for strongly and 0
 - Automated backup feature of the AWS RDS is a MULTI-AZ deployment that creates backup in SINGLE REGION.
 
 ****
+## EC2 Instance
+
+- When an instance terminates, the value of the **DeleteOnTermination** attribute for each attached EBS volume determines whether to preserve or delete the volume. By default, the DeleteOnTermination attribute is set to True for the root volume and is set to False for all other volume types.
+****
 ## ElastiCache
 - It allows you to seamlessly set up, run, and scale popular open-Source compatible in-memory data stores in the cloud.
 - Build data-intensive apps or boost the performance of your existing databases by retrieving data from high throughput and low latency in-memory data stores.
@@ -168,6 +186,8 @@ Formula of RCUs = (Item Size / 4 KB) × Consistency Factor (1 for strongly and 0
 
 ## CloudFront (CDN):
 
+- CloudFront determines the user's country based on the client's IP address and adds this header[**CloudFront-Viewer-Country**] to the request.
+
 - Signed URL:
     student -> buys a course -> Udemy (uses a private key and generate a URL valid till 1 hour) -> share it with student
     student -> cloudFront -> (Udemy has already uploaded the public key for the private key)
@@ -180,6 +200,71 @@ Formula of RCUs = (Item Size / 4 KB) × Consistency Factor (1 for strongly and 0
 - Trusted Key Group: cloudFront support a key groups, where we can store N number of public-keys
 - CloudFront Key Pair (legacy, root-user based): only able to store 2 active public-keys
 - example: https://d123.cloudfront.net/movie.mp42?Expires=17800000003&Signature=ABCXYZ4&Key-Pair-Id=K123456 // used to determine the public in the key-group.
+
+### Viewer VS Origin Requests
+
+- Origin Request are only forwareded to origin after cloudFront's cache-hit misses.
+
+```
+User Browser
+     │
+     ▼
+Viewer Request
+     │
+     ▼
+CloudFront Cache
+     │
+     ├── Cache Hit → Return Object
+     │
+     └── Cache Miss
+            │
+            ▼
+       Origin Request
+            │
+            ▼
+      S3 / ALB / EC2
+
+```
+
+### CloudFront Functions (Only in JS)
+
+It is ideal for lightweight, short-running function.
+- It can only be invoked in two cases:
+  - When CloudFront receives a request from a viewer (viewer request).
+  - Before CloudFront returns the response to the viewer (viewer response).
+
+- It only has access to viwer-request.
+- Use-cases like:
+  - Cache key normalization, method of trasforming HTTP request attributes(headers, query, strings, cookies or URL path), to create an optimal cache key.
+  - Header Manipulation
+  - URL redirects or rewrites.
+  - Request Authorization.
+
+### Lambda Edge Funtions
+- It is invoked in below conditions:
+  - Viewer Request → Before cache lookup
+  - Origin Request → After cache miss, before origin
+  - Origin Response → After origin response
+  - Viewer Response → Before response is sent to the user
+
+- Lambda functions can be used for the following use cases:
+  - Tasks that takes serval miliseconds to compute.
+  - Tasks that require adjustable Memory / CPU.
+  - Tasks that depend on thrid-party libraries.
+  - Tasks that require access to http, body
+
+```
+| Feature                         | CloudFront Function | Lambda\@Edge |
+| -------------------------------| -------------------  | ------------ |
+| Viewer Request                  | ✅                 | ✅            |
+| Viewer Response                 | ✅                 | ✅            |
+| Origin Request                  | ❌                 | ✅            |
+| Origin Response                 | ❌                 | ✅            |
+| Change Origin Dynamically       | ❌                 | ✅            |
+| Lightweight Header Manipulation | ✅                 | ✅            |
+| Complex Logic / Network Calls   | ❌                 | ✅            |
+
+```
 
 ****
 
@@ -201,12 +286,27 @@ Formula of RCUs = (Item Size / 4 KB) × Consistency Factor (1 for strongly and 0
 ### There are 2 types of concurrency.
 
 - Reserved concurrency guarantees the maximum number of concurrent instances for the function. When a function has reserved concurrency, no other function can use that concurrency. There is no charge for configuring reserved concurrency for a function.
+  - Also this act as a MAXIMUM limit of concurrency for this lambda.
 
 - Provisioned concurrency initializes a requested number of execution environments so that they are prepared to respond immediately to your function's invocations. Note that configuring provisioned concurrency incurs charges to your AWS account.
+  - They act like servers, meaning this number of lambda function are always running.
+
+### Account Quotas
+- Each aws account has a default limit of 1000 concurrent lambda per REGION.
+- It can be increased OR decreased ?, YES
+- Reserved concurrency MAX is 900 (if total concurrency is 1000), AWS Minimum Unreserved Pool = 100, at any given point.
 
 ### Triva
 - The total size of the env variables should not exceed 4 KB.
 - The local directory /tmp, This is 512MB of temporary space you can use for your Lambda functions.
+- Only ALB can used to point to a lambda function, NLB works on netwrok layer(instances and IP addresses).
+- Account Concurrency Limit = 1000, Meaning 
+
+****
+## API Gateway
+
+- To enable CloudWatch Logs for all or only some of the methods, you must also specify the ARN of an IAM role that enables API Gateway to write information to CloudWatch Logs on behalf of your user. The IAM role must also contain the following trust relationship statement.
+- It uses STS for logging data to cloudWatch, hence this needs to be enabled.
 
 ****
 
@@ -214,9 +314,12 @@ Formula of RCUs = (Item Size / 4 KB) × Consistency Factor (1 for strongly and 0
 - When dealing with SQS/SNS events, and longer tasks, use **Dedicated Worker Enviroment**.
 
 ### You provide: Application Code
-
 - Elastic Beanstalk manages: EC2, Auto Scaling, Load Balancer, Monitoring, Health Checks, Deployments.
 - .ebextension folder (at the root of the project), inside this folder we can add all the config file with ".config".
+
+- How to mirgate the Beanstalk environment ?
+  - You must use **saved configurations** to migrate an Elastic Beanstalk environment between AWS accounts. You can save your environment's configuration as an object in Amazon Simple Storage Service (Amazon S3) that can be applied to other environments during environment creation, or applied to a running environment. Saved configurations are YAML formatted templates that define an environment's platform version, tier, configuration option settings, and tags.
+  - Download the saved configuration to your local machine. Change your account-specific parameters in the downloaded configuration file, and then save the changes. For example, change the key pair name, subnet ID, or application name (such as application-b-name). Upload the saved configuration from your local machine to an S3 bucket in Team B's account. From this account, create a new Beanstalk application by choosing 'Saved Configurations' from the navigation panel.
 
 ****
 ## Simple Queue Service (SQS)
@@ -231,6 +334,12 @@ Formula of RCUs = (Item Size / 4 KB) × Consistency Factor (1 for strongly and 0
 - "no limit": There are no message limits for storing in SQS.
 - By default SQS uses SHORT-POLLING, With short polling, Amazon SQS sends the response right away, even if the query found no messages.
 - **LONG POLLING**: Helps reduce the cost of AWS SQS by elimating the number of empty responses.
+- **WaitTimeSeconds**: It tells SQS how long to wait for a message to arrive before returning a response when a consumer calls ReceiveMessage.
+  - Consumer sends ReceiveMessage.
+  - If a message is already available, SQS returns it immediately.
+  - If no message exists, SQS waits up to 20 seconds.
+  - If a message arrives during that time, it is returned.
+  - If no message arrives, SQS returns an empty response after 20 seconds.
 
 ### Extended Client
 - It helps in handling events, whose size is more than 256kb.
@@ -243,6 +352,8 @@ Formula of RCUs = (Item Size / 4 KB) × Consistency Factor (1 for strongly and 0
 
 ### Triva
 - The maxium size of a message supported by SQS is 1MB / 1024 KB.
+- Max messages to be retrived at time is 10.
+- Max message rentention time is 14 days, default is 4 days.
 
 ****
 
@@ -317,6 +428,41 @@ It is serverless event bus, that events from aws services, application to target
 
 ****
 
+## Elastic Container registry (ECR)
+- ECR is AWS's managed Docker container image repository.
+
+Normal ECR workflow is
+```
+  # Build locally
+  docker build -t demo .
+
+  # Tag for ECR
+  docker tag demo:latest \
+  1234567890.dkr.ecr.eu-west-1.amazonaws.com/demo:latest
+
+  # Login to ECR
+  aws ecr get-login-password --region eu-west-1 | \
+  docker login --username AWS --password-stdin \
+  1234567890.dkr.ecr.eu-west-1.amazonaws.com
+
+  # Push to ECR
+  docker push 1234567890.dkr.ecr.eu-west-1.amazonaws.com/demo:latest
+```
+
+Shorcut to remember:
+```
+  | Service | Purpose                           |
+  | ------- | --------------------------------- |
+  | ECR     | Store container images            |
+  | ECS     | Run containers                    |
+  | Fargate | Serverless compute for containers |
+  | EKS     | Managed Kubernetes                |
+  | Docker  | Build container images            |
+```
+
+
+****
+
 ## Amazon Elastic Container Service (Amazon ECS)
 
 - It is a highly scalable, fast, container management service that makes it easy to run, stop, and manage Docker containers on a cluster. You can host your cluster on a serverless infrastructure that is managed by Amazon ECS by launching your services or tasks using the Fargate launch type.
@@ -325,12 +471,60 @@ It is serverless event bus, that events from aws services, application to target
 
 - When you deploy your services using Amazon Elastic Container Service (Amazon ECS), you can use dynamic port mapping to support multiple tasks from a single service on the same container instance. Amazon ECS manages updates to your services by automatically registering and deregistering containers with your target group using the instance ID and port for each container.
 
+```
+Docker -> Runs Containers
+
+ECS -> Manages Containers
+```
+
+- In ECS, a Task Definition is like a blueprint or configuration file that tells AWS how to run your container(s).
+Think of it this way:
+  - Docker Image = the application code.
+  - Task Definition = instructions for running the application.
+  - Task = a running instance of the task definition.
+  - Service = keeps the desired number of tasks running continuously
+
+### Logging
+- CloudWatch Log Driver (awslogs) is a Docker/ECS logging driver that automatically sends your container's logs (stdout and stderr) to Amazon CloudWatch Logs. Add the required ***logConfiguration*** parameters to your task definition.
+
+- What happens when ECS sends logs to CloudWatch?
+  - Suppose your container writes: ``Application started, User login successful``.
+  - Create the log group (if configured) ``logs:CreateLogGroup``.
+  - Create a log stream ``logs:CreateLogStream``.
+  - Check whether the log stream already exists and get its sequence token ``logs:DescribeLogStreams``.
+  - Send log events ``logs:PutLogEvents``.
+  - Therefore required permission are:
+``` 
+  {
+    "Effect": "Allow",
+    "Action": [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+      "logs:DescribeLogStreams"
+    ],
+    "Resource": "*"
+  }
+```
+
 ### Triva
 - When a container is TERMINATED while running, the container is still registered to the ECS, so it will be de-reigstered.
 - When a conatiner is TERMINATED when it is in STOPPED state, the container will not be removed from ECS, because it is not registered, need to manually de-register it.
 
 ****
-## Configure CloudWatch
+
+## Fargate
+- Fargate is a serverless compute engine for containers, it allows you to run containers witout managing the EC2 instance.
+- With Fargate: ``` ECS Service -> Fargate -> Containers ```, AWS will manage:
+  - Servers.
+  - OS patching.
+  - Capacity provisioning.
+  - Infrastructure maintenance.
+  - We only have to provide ```CPU = 1 vCPU, Memory = 2 GB, Container Image = myapp:latest ```.
+- It manages all the underlining EC2 instances, we do not need to worry about the EC2 instances.
+
+****
+## CloudWatch
 
 ### Logs
 
@@ -371,6 +565,24 @@ It is serverless event bus, that events from aws services, application to target
 - Classic LB does not support dynamic port mapping.
 - **X-Forwarded-For**, to get the client address in EC2 or lambda, LB attaches the client IP in the headers.X-Forwarded-For key.
 
+### Types of LBs and there usecases:
+
+| Feature                | ALB | NLB | GWLB |
+| ---------------------- | --- | --- | ---- |
+| OSI Layer              | 7   | 4   | 3/4  |
+| HTTP/HTTPS Routing     | ✅   | ❌   | ❌    |
+| Path-based Routing     | ✅   | ❌   | ❌    |
+| Cognito Authentication | ✅   | ❌   | ❌    |
+| OIDC Authentication    | ✅   | ❌   | ❌    |
+| Lambda Target          | ✅   | ❌   | ❌    |
+| Static IP              | ❌   | ✅   | ❌    |
+| UDP Support            | ❌   | ✅   | ❌    |
+| Ultra-low Latency      | ❌   | ✅   | ✅    |
+| Firewall Appliances    | ❌   | ❌   | ✅    |
+| SSL pass-through       | ❌   | ✅   | ✅    |
+| SSL termination        | ✅   | ✅   | ❌    |
+
+
 ### Stickiness Enabled
 - Sticky sessions are a mechanism to route requests to the same target in a target group. This is useful for servers that maintain state information to provide a continuous experience to clients. To use sticky sessions, the clients must support cookies.
 - Working:
@@ -380,6 +592,13 @@ It is serverless event bus, that events from aws services, application to target
   - When the load balancer receives a request from a client that contains the cookie.
   - if sticky sessions are enabled for the target group and the request goes to the same target group, the load balancer detects the cookie and routes the request to the same target.
 
+### Authentication:
+- We can configure a **ALB** with a cognito or any OpenId (OIDC), for the authentication process.
+- No Authentication support for the **Network** and **Gateway** Load-Balancer.
+
+### Triva:
+- With **SSL Termination** the LB will decrypt the HTTPS request and send the HTTP requets forward (Not Supported yb GWLB).
+- With **SSL Pass-Through** the LB will just transfer the request with any decryption (Not Supported by ALB).
 
 ****
 
@@ -437,10 +656,32 @@ It is serverless event bus, that events from aws services, application to target
 
 ## AWS CloudFormation 
 
--It gives developers and businesses an easy way to create a collection of related AWS and third-party resources and provision them in an orderly and predictable fashion.
+- It gives developers and businesses an easy way to create a collection of related AWS and third-party resources and provision them in an orderly and predictable fashion.
 
-How CloudFormation Works:
-AWS CloudFormation gives developers and businesses an easy way to create a collection of related AWS and third-party resources and provision them in an orderly and predictable fashion.
+- How CloudFormation Works: AWS CloudFormation gives developers and businesses an easy way to create a collection of related AWS and third-party resources and provision them in an orderly and predictable fashion.
+
+- To create a cross-stack reference, use the Export output field to flag the value of a resource output for export. Then, use the Fn::ImportValue intrinsic function to import the value.
+
+| Function       | Purpose                                                                         | Example Use                                   |
+| -------------- | ------------------------------------------------------------------------------- | --------------------------------------------- |
+| `!Ref`         | Returns the value of a parameter or the physical ID/default value of a resource | Get an EC2 Instance ID or parameter value     |
+| `!GetAtt`      | Returns an attribute of a resource                                              | Get RDS endpoint, Load Balancer DNS name, ARN |
+| `!Sub`         | String substitution using variables                                             | Build ARNs, URLs, resource names              |
+| `!FindInMap`   | Retrieves a value from a Mapping section                                        | Select AMI ID based on Region                 |
+| `!Join`        | Concatenates strings together                                                   | Build complex strings                         |
+| `!Split`       | Splits a string into a list                                                     | Parse comma-separated values                  |
+| `!Select`      | Selects an item from a list                                                     | Choose a subnet from a subnet list            |
+| `!ImportValue` | Imports output values from another CloudFormation stack                         | Cross-stack references                        |
+| `!If`          | Returns one value if condition is true and another if false                     | Conditional resource properties               |
+| `!Equals`      | Compares two values                                                             | Used in Conditions section                    |
+| `!And`         | Logical AND operation                                                           | Multiple condition checks                     |
+| `!Or`          | Logical OR operation                                                            | At least one condition must be true           |
+| `!Not`         | Logical NOT operation                                                           | Negate a condition                            |
+| `!Base64`      | Encodes text in Base64                                                          | EC2 UserData scripts                          |
+| `!Cidr`        | Generates CIDR blocks from a CIDR range                                         | VPC/Subnet calculations                       |
+| `!GetAZs`      | Returns Availability Zones for a region                                         | Multi-AZ deployments                          |
+| `!Transform`   | Specifies a macro or SAM transform                                              | AWS SAM templates                             |
+
 
 **CloudFormation currently supports the following parameter types:**
 ```
@@ -485,6 +726,10 @@ EBS volumes are flexible.
   - GP2 IOPS = 3 * volumn_size.
   - GP3 IOPS = custom IOPS, regardless of the size (costier than GP2).
   - IO1 / IO2 = 50 * volumn_size, And IO1 / IO2 are dedicated SSD.
+
+### Trivia:
+- AWS CloudTrail event logs for **CreateVolume** aren't available for EBS volumes created during an Amazon Elastic Compute Cloud (Amazon EC2) launch.
+- Encryption by default is **Region-specific**.
 
 ****
 ## AWS S3
@@ -554,6 +799,14 @@ EBS volumes are flexible.
 }
 ```
 Here all the objects in the public folder are public.
+
+2. If two writes are made to a single non-versioned object at the same time, it is possible that only a single event notification will be sent. If you want to ensure that an event notification is sent for every successful write, you can enable versioning on your bucket. With versioning, every successful write will create a new version of your object and will also send event notification.
+****
+
+## Elastic File System (EFS)
+- EFS is a file storage service for use with Amazon compute (EC2, containers, serverless) and on-premises servers.
+- EFS provides a file system interface, file system access semantics (such as strong consistency and file locking), and concurrently accessible storage for up to thousands of Amazon EC2 instances.
+- 
 ****
 ## Amazon Macie
 - Amazon Macie's primary scope is Amazon S3.
@@ -773,6 +1026,30 @@ AWS CodeDeploy is an service, that manages all the deployment tasks.
 
 To maintain the same number of instances, Amazon EC2 Auto Scaling performs a periodic health check on running instances within an Auto Scaling group. When it finds that an instance is unhealthy, it terminates that instance and launches a new one. Amazon EC2 Auto Scaling creates a new scaling activity for terminating the unhealthy instance and then terminates it. Later, another scaling activity launches a new instance to replace the terminated instance.
 
+- It can used in DynamoDB for increasing the RCU and WCU, according to the traffic.
+- It can be used with Aurora / RDS for scaling the read replicas.
+
+Auto Scaling with Health-checks
+```
+ASG
+ |
+ALB
+ |
+ +-- EC2-1 (Healthy)
+ +-- EC2-2 (Unhealthy)
+```
+Here the ASC will automatically replace the instances.
+
+| Function                 | Purpose                                   |
+| ------------------------ | ----------------------------------------- |
+| Health Check             | Is the instance/task working?             |
+| Auto Scaling             | Do we need more/fewer instances/tasks?    |
+| ASG                      | Replaces unhealthy EC2 instances          |
+| ECS Service              | Replaces unhealthy ECS/Fargate tasks      |
+| ALB Health Check         | Sends periodic requests such as `/health` |
+| Application Auto Scaling | Scales ECS/Fargate tasks based on metrics |
+
+
 ****
 
 ## Types of Deployment
@@ -918,3 +1195,5 @@ For example, the AWS account A administrator can create a role to grant cross-ac
   - GetCallerIdentity: Find out who you are currently authenticated as "aws sts get-caller-identityShow more lines".
   - GetSessionToken.
   - DecodeAuthorizationMessage.
+
+****
