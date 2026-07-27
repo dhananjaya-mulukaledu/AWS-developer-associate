@@ -4,10 +4,12 @@
 Table Of Content
 - [AWS Developer](#aws-developer)
   - [Dynamo DB](#dynamo-db)
+    - [Global Tables](#global-tables)
     - [Read Capacity Unit (RCU)](#read-capacity-unit-rcu)
     - [Parallel Scan](#parallel-scan)
     - [Options to backup the DB data to S3](#options-to-backup-the-db-data-to-s3)
     - [DynamoDB Accelerator (DAX)](#dynamodb-accelerator-dax)
+    - [DynamoDB Trivia](#dynamodb-trivia)
   - [AWS RDS](#aws-rds)
     - [Replicas and backup](#replicas-and-backup)
   - [EC2 Instance](#ec2-instance)
@@ -19,6 +21,8 @@ Table Of Content
   - [Lambda Function:](#lambda-function)
     - [There are 2 types of concurrency.](#there-are-2-types-of-concurrency)
     - [Account Quotas](#account-quotas)
+    - [Destinations:](#destinations)
+    - [Cross Account](#cross-account)
     - [Triva](#triva)
   - [API Gateway](#api-gateway)
   - [Elastic Beanstalk](#elastic-beanstalk)
@@ -26,7 +30,13 @@ Table Of Content
   - [Simple Queue Service (SQS)](#simple-queue-service-sqs)
     - [Extended Client](#extended-client)
     - [Triva](#triva-1)
+  - [Simple Notification Service (SNS)](#simple-notification-service-sns)
+    - [SNS FIFO Topics](#sns-fifo-topics)
+    - [Message Body vs Message Attributes](#message-body-vs-message-attributes)
+    - [Filtering in SNS](#filtering-in-sns)
   - [AWS Serverless Application Model (AWS SAM),](#aws-serverless-application-model-aws-sam)
+    - [SAM Template Sections](#sam-template-sections)
+    - [Common Resources in the Resources Section](#common-resources-in-the-resources-section)
   - [Amazon Kinesis](#amazon-kinesis)
     - [Use Cases](#use-cases)
     - [Shards](#shards)
@@ -68,16 +78,20 @@ Table Of Content
   - [Amazon Macie](#amazon-macie)
     - [Macie vs Other Security Services](#macie-vs-other-security-services)
   - [AWS KMS (Key Management Service)](#aws-kms-key-management-service)
+    - [Cross-Account KMS](#cross-account-kms)
     - [Envelope Encryption](#envelope-encryption)
+    - [Message Authentication Code](#message-authentication-code)
     - [Triva](#triva-8)
       - [Simple Architecture](#simple-architecture)
   - [CloudTrail](#cloudtrail)
+  - [Secrets Manager](#secrets-manager)
   - [SSM Parameter store](#ssm-parameter-store)
   - [AWS CodeBuild](#aws-codebuild)
   - [AWS CodePipeline](#aws-codepipeline)
   - [AWS CodeCommit](#aws-codecommit)
   - [AWS CodeDeploy](#aws-codedeploy)
-      - [AWS CodeDeploy Agent](#aws-codedeploy-agent)
+    - [Lifecycle Event Hooks](#lifecycle-event-hooks)
+    - [AWS CodeDeploy Agent](#aws-codedeploy-agent)
   - [CodeStar](#codestar)
       - [Triva](#triva-9)
   - [Auto-Scaling](#auto-scaling)
@@ -98,6 +112,8 @@ Table Of Content
     - [Granting Cross-Account Permissions](#granting-cross-account-permissions)
 - [AWS Glue](#aws-glue)
   - [AWS Security Token Service (STS)](#aws-security-token-service-sts)
+  - [Global Trivia](#global-trivia)
+    - [Status codes:](#status-codes)
 
 
 ## Dynamo DB
@@ -106,6 +122,20 @@ Table Of Content
 * TransactWriteItem or TransactReadItem, for write or read transaction. Dynamo db makes 2 write or 2 read operations, one for prepare and one of commit the transaction.
 * DynamoDB Streams is a feature that captures every change made to items in a DynamoDB table and stores those changes in a stream for up to 24 hours. It enables event-driven architectures by letting other services react to database changes in near real time.
 * Dynamo DB has 2 types of backup, on-demand(when we choose) and point-in-time(continuous backup),**BOTH STORE TO S3, BUT S3 IS NOT ACCESS TO ANY USERS.**
+
+### Global Tables
+- DynamoDB Global Tables provide a fully managed, multi-region, active-active (all nodes are parent) DynamoDB table where data is automatically replicated across AWS Regions, enabling low-latency access and high availability.
+- What if two regions update the same item at the same time?
+  - The update with the latest timestamp becomes the final value.
+
+| Feature                        | Global Tables      | DAX       |
+| ------------------------------ | ------------------ | --------- |
+| Multi-region                   | ✅                  | ❌         |
+| Disaster recovery              | ✅                  | ❌         |
+| Reduce read latency            | ✅ (nearest region) | ✅ (cache) |
+| In-memory cache                | ❌                  | ✅         |
+| Supports writes in all regions | ✅                  | ❌         |
+
 
 ### Read Capacity Unit (RCU)
 
@@ -146,7 +176,10 @@ Formula of RCUs = (Item Size / 4 KB) × Consistency Factor (1 for strongly and 0
 ### DynamoDB Accelerator (DAX)
 - It is a fully managed, highly available, in-memory cache for Amazon DynamoDB that delivers up to a 10 times performance improvement—from milliseconds to microseconds—even at millions of requests per second.
 - DAX is tightly integrated with DynamoDB—you simply provision a DAX cluster, use the DAX client SDK to point your existing DynamoDB API calls at the DAX cluster, and let DAX handle the rest. Because DAX is API-compatible with DynamoDB, you don't have to make any functional application code changes. DAX is used to natively cache DynamoDB reads.
-- 
+
+### DynamoDB Trivia
+- **attribute_not_exists(id)**: condition expression commonly used to ensure an item does not already exist before performing a write.
+
 **** 
 ## AWS RDS
 - RDS POSTGRESQL and RDS MYSQL can be configured with IAM database Authentication.
@@ -154,6 +187,27 @@ Formula of RCUs = (Item Size / 4 KB) × Consistency Factor (1 for strongly and 0
 
 ### Replicas and backup
 - Automated backup feature of the AWS RDS is a MULTI-AZ deployment that creates backup in SINGLE REGION.
+
+| Function / Operator          | Purpose                         | Example                                    | Meaning                                   |
+| ---------------------------- | ------------------------------- | ------------------------------------------ | ----------------------------------------- |
+| `attribute_not_exists(attr)` | Attribute must not exist        | `attribute_not_exists(id)`                 | Insert only if item doesn't already exist |
+| `attribute_exists(attr)`     | Attribute must exist            | `attribute_exists(id)`                     | Update/Delete only if item exists         |
+| `attribute_type(attr, type)` | Check attribute data type       | `attribute_type(age,'N')`                  | Ensure `age` is a Number                  |
+| `begins_with(attr, value)`   | String starts with value        | `begins_with(SK,'ORDER#')`                 | Sort key begins with `ORDER#`             |
+| `contains(attr, value)`      | Value exists in string/list/set | `contains(tags,'AWS')`                     | Tags contain AWS                          |
+| `size(attr)`                 | Get size of attribute           | `size(username) < 20`                      | Username length is less than 20           |
+| `=`                          | Equal to                        | `status = 'ACTIVE'`                        | Status must be ACTIVE                     |
+| `<>`                         | Not equal to                    | `status <> 'DELETED'`                      | Status is not DELETED                     |
+| `>`                          | Greater than                    | `price > 100`                              | Price greater than 100                    |
+| `>=`                         | Greater than or equal           | `price >= 100`                             | Price at least 100                        |
+| `<`                          | Less than                       | `price < 100`                              | Price less than 100                       |
+| `<=`                         | Less than or equal              | `price <= 100`                             | Price at most 100                         |
+| `BETWEEN`                    | Range comparison                | `price BETWEEN 100 AND 500`                | Price within range                        |
+| `IN`                         | Match one of many values        | `status IN ('NEW','ACTIVE')`               | Status is NEW or ACTIVE                   |
+| `AND`                        | Both conditions true            | `attribute_exists(id) AND status='ACTIVE'` | Both must be true                         |
+| `OR`                         | Either condition true           | `status='ACTIVE' OR status='PENDING'`      | One must be true                          |
+| `NOT`                        | Negate condition                | `NOT contains(tags,'OLD')`                 | Tags must not contain OLD                 |
+
 
 ****
 ## EC2 Instance
@@ -296,11 +350,27 @@ It is ideal for lightweight, short-running function.
 - It can be increased OR decreased ?, YES
 - Reserved concurrency MAX is 900 (if total concurrency is 1000), AWS Minimum Unreserved Pool = 100, at any given point.
 
+### Destinations:
+- Lambda Destinations is a feature that lets AWS automatically send the result of an asynchronous Lambda invocation to another AWS service after the function finishes.
+- When Is It Used? Only for asynchronous invocations, such as:
+  - SNS → Lambda
+  - EventBridge → Lambda
+  - S3 → Lambda
+  - CloudWatch Events → Lambda
+- Not for synchronous invocations like:
+  - API Gateway (normal request/response).
+  - Direct SDK Invoke with RequestResponse
+
+### Cross Account
+- For a lambda function in account A to invoke a lambda function in account B:
+  - Account B's lambda function should have a resource-based policy that allows a source function(account A function) to invoke it.
+
 ### Triva
 - The total size of the env variables should not exceed 4 KB.
 - The local directory /tmp, This is 512MB of temporary space you can use for your Lambda functions.
 - Only ALB can used to point to a lambda function, NLB works on netwrok layer(instances and IP addresses).
-- Account Concurrency Limit = 1000, Meaning 
+- Default account concurrency limit = 1000 per region.
+- Max function timeout is 900 seconds (15 mins), min is 1 seonds and default is 3 seconds.
 
 ****
 ## API Gateway
@@ -312,14 +382,25 @@ It is ideal for lightweight, short-running function.
 
 ## Elastic Beanstalk
 - When dealing with SQS/SNS events, and longer tasks, use **Dedicated Worker Enviroment**.
+- Elastic Beanstalk installs a health agent on each EC2 instance to gather infomation about response-code, latency, CPU utilization and many more.
 
 ### You provide: Application Code
+-  Elastic Beanstalk is designed for long-running applications that run on compute resources such as EC2 instances, not Lambda functions (No serverless support).
 - Elastic Beanstalk manages: EC2, Auto Scaling, Load Balancer, Monitoring, Health Checks, Deployments.
 - .ebextension folder (at the root of the project), inside this folder we can add all the config file with ".config".
 
 - How to mirgate the Beanstalk environment ?
   - You must use **saved configurations** to migrate an Elastic Beanstalk environment between AWS accounts. You can save your environment's configuration as an object in Amazon Simple Storage Service (Amazon S3) that can be applied to other environments during environment creation, or applied to a running environment. Saved configurations are YAML formatted templates that define an environment's platform version, tier, configuration option settings, and tags.
   - Download the saved configuration to your local machine. Change your account-specific parameters in the downloaded configuration file, and then save the changes. For example, change the key pair name, subnet ID, or application name (such as application-b-name). Upload the saved configuration from your local machine to an S3 bucket in Team B's account. From this account, create a new Beanstalk application by choosing 'Saved Configurations' from the navigation panel.
+
+- Basic vs Enhanced Health-Check
+| Basic Health Check                                       | Enhanced Health Check                            |
+| -------------------------------------------------------- | ------------------------------------------------ |
+| Mainly uses Load Balancer health checks                  | Uses data from an agent running on EC2 instances |
+| Only knows whether an instance responds to HTTP requests | Analyzes application, OS, and instance metrics   |
+| Limited visibility                                       | Detailed visibility and root cause information   |
+| Health states: Healthy/Unhealthy                         | Multiple health states and causes                |
+
 
 ****
 ## Simple Queue Service (SQS)
@@ -357,6 +438,50 @@ It is ideal for lightweight, short-running function.
 
 ****
 
+## Simple Notification Service (SNS)
+- An SNS topic can have multiple subscriptions with different protocols at the same time.
+- Maximum SNS message size: 256 KB (includes both attributes and body).
+
+### SNS FIFO Topics
+- A FIFO SNS topic provides:
+  - Message ordering (first-in, first-out).
+  - Exactly-once message delivery (within the deduplication window).
+  - Integration with FIFO SQS queues.
+
+| Feature            | Standard SNS  | FIFO SNS                |
+| ------------------ | ------------- | ----------------------- |
+| Ordering           | ❌ Best effort | ✅ Strict ordering       |
+| Duplicate messages | Possible      | ✅ Deduplication support |
+| Throughput         | Very high     | Lower than standard     |
+| Topic name         | `orders`      | `orders.fifo`           |
+| Fan-out            | ✅ Yes         | ✅ Yes                   |
+| SQS FIFO support   | ❌ Not ordered | ✅ Ordered               |
+
+### Message Body vs Message Attributes
+
+| Message Body         | Message Attributes                    |
+| -------------------- | ------------------------------------- |
+| Actual business data | Metadata about the message            |
+| Read by application  | Used by SNS filtering and subscribers |
+| Can be large         | Usually small                         |
+| Stored as content    | Stored as key-value pairs             |
+
+
+### Filtering in SNS
+Basically when sending a messages to the targets (SQS, Lambda), SNS evaluates the filter-policy (attached to SNS), before forwarding the messages to target. 
+- How SNS Message Filtering Works:
+  - Publisher sends a message to an SNS topic.
+  - The message can include message attributes (metadata).
+  - Each subscription (SQS, Lambda, HTTP endpoint, etc.) can have a filter policy.
+  - SNS delivers the message only to subscriptions whose filter policy matches the message attributes.
+
+- Can SNS Filter on Message Body? Yes. SNS supports:
+  - Message Attributes Filtering (most common and recommended)
+  - Message Body Filtering (using filter policies against JSON message bodies)
+
+
+****
+
 ## AWS Serverless Application Model (AWS SAM), 
 (serverless-framework - tryFuse)
 
@@ -365,6 +490,34 @@ It is ideal for lightweight, short-running function.
 - sam deploy - Full deployment - Slow - Updates CloudFormation stack
 
 - sam sync - Fast deployment - Updates only what's changed, Great during development. (acts like nodemon).
+
+### SAM Template Sections
+| Section                      | Purpose / Definition                                                                                                                               |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **AWSTemplateFormatVersion** | Specifies the CloudFormation template version being used.                                                                                          |
+| **Transform**                | Enables SAM functionality by specifying `AWS::Serverless-2016-10-31`. This is the key section that makes a CloudFormation template a SAM template. |
+| **Description**              | Human-readable description of the template.                                                                                                        |
+| **Parameters**               | Accepts input values during deployment, such as environment name, instance type, or bucket name.                                                   |
+| **Mappings**                 | Stores static key-value lookup data, such as environment-specific configurations.                                                                  |
+| **Conditions**               | Controls whether specific resources are created based on logical conditions.                                                                       |
+| **Globals**                  | SAM-specific section that defines common settings applied to all Functions, APIs, or State Machines. Reduces duplication.                          |
+| **Resources**                | Defines the AWS resources to be created. This is the most important section.                                                                       |
+| **Outputs**                  | Returns values after deployment, such as ARNs, URLs, and resource names.                                                                           |
+| **Metadata**                 | Provides additional information for tools, build processes, or the Serverless Application Repository.                                              |
+
+### Common Resources in the Resources Section
+
+| Resource Type                     | Definition                                                 |
+| --------------------------------- | ---------------------------------------------------------- |
+| **AWS::Serverless::Function**     | Creates a Lambda function.                                 |
+| **AWS::Serverless::Api**          | Creates an API Gateway REST API.                           |
+| **AWS::Serverless::HttpApi**      | Creates an API Gateway HTTP API.                           |
+| **AWS::Serverless::SimpleTable**  | Creates a DynamoDB table with simplified configuration.    |
+| **AWS::Serverless::StateMachine** | Creates a Step Functions state machine.                    |
+| **AWS::SQS::Queue**               | Creates an SQS queue.                                      |
+| **AWS::SNS::Topic**               | Creates an SNS topic.                                      |
+| **AWS::DynamoDB::Table**          | Creates a DynamoDB table using full CloudFormation syntax. |
+| **AWS::S3::Bucket**               | Creates an S3 bucket.                                      |
 
 ****
 ## Amazon Kinesis
@@ -510,6 +663,9 @@ Think of it this way:
 ### Triva
 - When a container is TERMINATED while running, the container is still registered to the ECS, so it will be de-reigstered.
 - When a conatiner is TERMINATED when it is in STOPPED state, the container will not be removed from ECS, because it is not registered, need to manually de-register it.
+- ``ecs update-service``, command updates an exisiting the ECS service, including changing the task definition(if any).
+- ``ecs create-service``, command to create a ECS service.
+- ``ecs run-task``, runs a one-off task.
 
 ****
 
@@ -842,6 +998,26 @@ Here all the objects in the public folder are public.
 ## AWS KMS (Key Management Service)
 
 - AWS KMS is a managed service that helps you create, store, manage, and use encryption keys to protect your data in AWS services and your applications.
+- KMS keys can not be exported.
+
+### Cross-Account KMS
+- **AWS Managed keys can not be shared across accounts.**
+- Can a KMS key in account 1 be accessed by account 2 ?
+  - Yes, a KMS key in Account A can be used by Account B, but cross-account access is not enabled by default. Both of the following must be configured:
+    - KMS Key Policy in Account A.
+    - IAM Policy in Account B.
+
+```
+  Account A
+    |
+    +-- KMS Key (Customer Managed Key)
+          |
+          | Allow
+          v
+  Account B
+    |
+    +-- IAM User / Role
+```
 
 ### Envelope Encryption
 
@@ -875,10 +1051,25 @@ Decryted Data Key
 Decryted 100 GB File
 ```
 
+### Message Authentication Code
+- In AWS KMS, MAC stands for Message Authentication Code. It is used to verify:
+  - Integrity – the message was not modified.
+  - Authenticity – the message came from someone who knows the secret key.
+- Unlike encryption, a MAC does not hide the data. It only proves that the data is genuine and unchanged.
+
+| Feature                  | MAC   | Encryption      |
+| ------------------------ | ----- | --------------- |
+| Protects confidentiality | ❌ No  | ✅ Yes           |
+| Detects tampering        | ✅ Yes | ❌ Not by itself |
+| Verifies authenticity    | ✅ Yes | ❌ Not by itself |
+| Reversible               | ❌ No  | ✅ Yes (decrypt) |
+
+
 ### Triva
 - KMS = Key Store, only manges encryption keys MAX of 4kb.
 - Secrets Manager = Password Store, Used to store ENV vars
 - Parameter Store = Configuration Store, Used to different env, like "/dev/db/url", "/qa/db/url".
+- When a key is scheduled for deletion, there is a waiting period of 7 - 30 days(configurable), after this the kay is permanently deleted (On spot deletion is NOT SUPPORTED).
 
 #### Simple Architecture
 ```
@@ -910,7 +1101,16 @@ In Prod Example:
 ## CloudTrail
 - AWS CloudTrail is a service that enables governance, compliance, operational auditing, and risk auditing of your AWS account.
 - With CloudTrail, you can log, continuously monitor, and retain account activity related to actions across your AWS infrastructure. 
+****
 
+## Secrets Manager
+- AWS Secrets Manager is a managed AWS service used to securely store, retrieve, and rotate sensitive information such as:
+  - Database usernames/passwords.
+  - API keys.
+  - OAuth tokens.
+  - Third-party service credentials.
+  - Application secrets.
+-  Different versions of a secrets be obtained with the help of **VersionStage**.
 ****
 
 ## SSM Parameter store
@@ -994,9 +1194,22 @@ Think of it as AWS's version of GitHub, GitLab, or Bitbucket, where you can stor
 
 AWS CodeDeploy is an service, that manages all the deployment tasks.
 
+- It supports deployment on lambda functions, Ec2 instances, on-premises EC2 instances.
 - When **automatic rollback** is enabled, then when a deployment fails, codeDeploy automatically deploys the last known WORKING version with a new deploymentId.
 
-#### AWS CodeDeploy Agent
+### Lifecycle Event Hooks
+| Hook                 | Purpose                                                                                 |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| **ApplicationStop**  | Stop the currently running application before deploying the new version                 |
+| **DownloadBundle**   | CodeDeploy agent downloads the revision from S3/GitHub (cannot run custom scripts here) |
+| **BeforeInstall**    | Run pre-installation tasks such as backing up files                                     |
+| **Install**          | Copies the application files to the target location (managed by CodeDeploy)             |
+| **AfterInstall**     | Configuration tasks after files are copied                                              |
+| **ApplicationStart** | Start the application or services                                                       |
+| **ValidateService**  | Perform health checks and verify deployment success                                     |
+
+
+### AWS CodeDeploy Agent
 - The CodeDeploy agent is a software package that, when installed and configured on an instance, makes it possible for that instance to be used in CodeDeploy deployments.
 - The CodeDeploy agent archives revisions and log files on instances. The CodeDeploy agent cleans up these artifacts to conserve disk space.
 - You can use the **max_revisions** option in the agent configuration file to specify the number of application revisions to the archive by entering any positive integer.
@@ -1197,3 +1410,13 @@ For example, the AWS account A administrator can create a role to grant cross-ac
   - DecodeAuthorizationMessage.
 
 ****
+
+## Global Trivia
+
+### Status codes:
+- 400: Bad request (usually for validation).
+- 403: Invalida API key.
+- 419: Payload too large.
+- 429: Throttling.
+- 501: Application on the service is failing.
+- 504: Gateway timeout.(serverless API-gateway waiting for lambda).
